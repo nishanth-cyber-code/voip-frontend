@@ -28,7 +28,16 @@
 
         async function init() {
             // 1. Get Mic Access
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            localStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                    channelCount: 2,
+                    sampleRate: 48000,
+                    sampleSize: 16
+                }
+            });
             
             // 2. Setup Peer Connection
             peerConnection = new RTCPeerConnection(config);
@@ -50,6 +59,7 @@
                 if (data.offer) {
                     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
                     const answer = await peerConnection.createAnswer();
+                    answer.sdp = setHighBitrate(answer.sdp);
                     await peerConnection.setLocalDescription(answer);
                     socket.emit('signal', { answer: answer });
                 } else if (data.answer) {
@@ -61,6 +71,7 @@
 
             // Start the call
             const offer = await peerConnection.createOffer();
+            offer.sdp = setHighBitrate(offer.sdp);
             await peerConnection.setLocalDescription(offer);
             socket.emit('signal', { offer: offer });
         }
@@ -70,6 +81,9 @@
             track.enabled = !track.enabled;
             document.getElementById('micBtn').innerText = track.enabled ? "Mic: ON" : "Mic: OFF";
             document.getElementById('micBtn').style.background = track.enabled ? "#2ecc71" : "#95a5a6";
+        }
+        function setHighBitrate(sdp) {
+            return sdp.replace(/a=fmtp:111/, "a=fmtp:111;maxaveragebitrate=510000;stereo=1;sprop-stereo=1");
         }
 
         init();
