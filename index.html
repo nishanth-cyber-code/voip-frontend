@@ -19,79 +19,88 @@
 
     <script>
         const socket = io('https://voip-frontend-8slj.onrender.com', {
-            transports: ['websocket']
+            transports: ['websocket'],
             upgrade: false
-        }); // Replace with your Render/Railway URL
+        });
+
         let localStream;
         let peerConnection;
+
+        // FIXED: Added missing commas and fixed '3.1'/'4.1' typos to '3.l'/'4.l'
         const iceConfiguration = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
                 { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun3.1.google.com:19302' },
-                { urls: 'stun:stun4.1.google.com:19302'},
-            ];
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' }
+            ],
             iceTransportPolicy: 'all',
             bundlePolicy: 'max-bundle'
         };
 
         async function init() {
-            // 1. Get Mic Access
-            localStream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false,
-                    channelCount: 2,
-                    sampleRate: 48000,
-                    sampleSize: 16
-                }
-            });
-            
-            // 2. Setup Peer Connection
-            peerConnection = new RTCPeerConnection(iceConfiguration);
-            
-            // Add our mic audio to the connection
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            try {
+                // 1. Get Mic Access
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        channelCount: 2,
+                        sampleRate: 48000
+                    }
+                });
+                
+                // 2. Setup Peer Connection
+                peerConnection = new RTCPeerConnection(iceConfiguration);
+                
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-            // Listen for your friend's audio
-            peerConnection.ontrack = event => {
-                document.getElementById('remoteAudio').srcObject = event.streams[0];
-            };
+                peerConnection.ontrack = event => {
+                    document.getElementById('remoteAudio').srcObject = event.streams[0];
+                };
 
-            // Network signaling logic
-            peerConnection.onicecandidate = event => {
-                if (event.candidate) socket.emit('signal', { candidate: event.candidate });
-            };
+                peerConnection.onicecandidate = event => {
+                    if (event.candidate) socket.emit('signal', { candidate: event.candidate });
+                };
 
-            socket.on('signal', async (data) => {
-                if (data.offer) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-                    const answer = await peerConnection.createAnswer();
-                    answer.sdp = setHighBitrate(answer.sdp);
-                    await peerConnection.setLocalDescription(answer);
-                    socket.emit('signal', { answer: answer });
-                } else if (data.answer) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-                } else if (data.candidate) {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-                }
-            });
+                socket.on('signal', async (data) => {
+                    if (data.offer) {
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                        const answer = await peerConnection.createAnswer();
+                        answer.sdp = setHighBitrate(answer.sdp);
+                        await peerConnection.setLocalDescription(answer);
+                        socket.emit('signal', { answer: answer });
+                    } else if (data.answer) {
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                    } else if (data.candidate) {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    }
+                });
 
-            // Start the call
-            const offer = await peerConnection.createOffer();
-            offer.sdp = setHighBitrate(offer.sdp);
-            await peerConnection.setLocalDescription(offer);
-            socket.emit('signal', { offer: offer });
+                // Start the call
+                const offer = await peerConnection.createOffer();
+                offer.sdp = setHighBitrate(offer.sdp);
+                await peerConnection.setLocalDescription(offer);
+                socket.emit('signal', { offer: offer });
+
+                console.log("System Initialized & Connected");
+
+            } catch (err) {
+                console.error("Initialization failed:", err);
+            }
         }
 
         function toggleMic() {
+            if (!localStream) return;
             const track = localStream.getAudioTracks()[0];
             track.enabled = !track.enabled;
-            document.getElementById('micBtn').innerText = track.enabled ? "Mic: ON" : "Mic: OFF";
-            document.getElementById('micBtn').style.background = track.enabled ? "#2ecc71" : "#95a5a6";
+            const btn = document.getElementById('micBtn');
+            btn.innerText = track.enabled ? "Mic: ON" : "Mic: OFF";
+            btn.style.background = track.enabled ? "#2ecc71" : "#95a5a6";
         }
+
         function setHighBitrate(sdp) {
             return sdp.replace(/a=fmtp:111/, "a=fmtp:111;maxaveragebitrate=510000;stereo=1;sprop-stereo=1");
         }
