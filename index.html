@@ -18,8 +18,8 @@
     <audio id="remoteAudio" autoplay></audio>
 
     <script>
-        const socket = io('https://voip-frontend-8slj.onrender.com', {
-            transports: ['websocket'],
+        const socket = io('https://voip-frontend-8slj.onrender.com'), {
+            transports: ['websocket']
             upgrade: false
         });// Replace with your Render/Railway URL
         let localStream;
