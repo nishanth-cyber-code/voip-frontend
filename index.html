@@ -24,7 +24,12 @@
         });// Replace with your Render/Railway URL
         let localStream;
         let peerConnection;
-        const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        const iceConfiguration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+            ]
+        };
 
         async function init() {
             // 1. Get Mic Access
@@ -40,7 +45,7 @@
             });
             
             // 2. Setup Peer Connection
-            peerConnection = new RTCPeerConnection(config);
+            peerConnection = new RTCPeerConnection(iceConfiguration);
             
             // Add our mic audio to the connection
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
